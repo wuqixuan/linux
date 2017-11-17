@@ -2159,6 +2159,7 @@ static struct inode *shmem_get_inode(struct super_block *sb, const struct inode 
 		inode->i_ino = get_next_ino();
 		inode_init_owner(inode, dir, mode);
 		inode->i_blocks = 0;
+		inode->i_max_size = 0;
 		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
 		inode->i_generation = get_seconds();
 		info = SHMEM_I(inode);
@@ -3346,6 +3347,19 @@ static int shmem_xattr_handler_set(const struct xattr_handler *handler,
 	return simple_xattr_set(&info->xattrs, name, value, size, flags);
 }
 
+static int shmem_xattr_system_handler_set(const struct xattr_handler *handler,
+				   struct dentry *unused, struct inode *inode,
+				   const char *name, const void *value,
+				   size_t size, int flags)
+{
+	name = xattr_full_name(handler, name);
+	if (strcmp(name, "system.file_rollback") == 0) {
+		inode->i_max_size = simple_strtoll(value, 0, 10);
+		printk("inode->i_max_size:%d\n", inode->i_max_size);
+	}
+	return 0;
+}
+
 static const struct xattr_handler shmem_security_xattr_handler = {
 	.prefix = XATTR_SECURITY_PREFIX,
 	.get = shmem_xattr_handler_get,
@@ -3358,6 +3372,12 @@ static const struct xattr_handler shmem_trusted_xattr_handler = {
 	.set = shmem_xattr_handler_set,
 };
 
+static const struct xattr_handler shmem_system_xattr_handler = {
+	.prefix = XATTR_SYSTEM_PREFIX,
+	.get = shmem_xattr_handler_get,
+	.set = shmem_xattr_system_handler_set,
+};
+
 static const struct xattr_handler *shmem_xattr_handlers[] = {
 #ifdef CONFIG_TMPFS_POSIX_ACL
 	&posix_acl_access_xattr_handler,
@@ -3365,6 +3385,7 @@ static const struct xattr_handler *shmem_xattr_handlers[] = {
 #endif
 	&shmem_security_xattr_handler,
 	&shmem_trusted_xattr_handler,
+	&shmem_system_xattr_handler,
 	NULL
 };
 

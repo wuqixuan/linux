@@ -668,7 +668,8 @@ struct inode {
 #if IS_ENABLED(CONFIG_FS_ENCRYPTION)
 	struct fscrypt_info	*i_crypt_info;
 #endif
-
+	
+	loff_t			i_max_size;
 	void			*i_private; /* fs or device private pointer */
 } __randomize_layout;
 

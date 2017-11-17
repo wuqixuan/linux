@@ -528,6 +528,9 @@ EXPORT_SYMBOL(kernel_write);
 ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
 	ssize_t ret;
+	ssize_t ret1=0;
+	size_t count1 = count;
+	loff_t pos1 = *pos;
 
 	if (!(file->f_mode & FMODE_WRITE))
 		return -EBADF;
@@ -540,12 +543,46 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 	if (!ret) {
 		if (count > MAX_RW_COUNT)
 			count =  MAX_RW_COUNT;
+
 		file_start_write(file);
-		ret = __vfs_write(file, buf, count, pos);
-		if (ret > 0) {
+#if 1
+		count1 = count;
+		if (strcmp(current->comm,"test_wu")==0
+			&& (file->f_inode->i_max_size > 0)
+			&& (count1 + file->f_pos > file->f_inode->i_max_size))
+			{
+				printk("Begin1: fpos:%d, pos1:%d, count:%d, count1:%d, max:%d\n",
+					file->f_pos, pos1, count, count1, file->f_inode->i_max_size);
+				count1 = file->f_inode->i_max_size - file->f_pos;
+				ret1 = __vfs_write(file, buf, count1, &pos1);
+				if (ret1 > 0) {
+					printk("End1: fpos:%d, pos1:%d, count:%d, count1:%d, max:%d, ret1\n",
+						file->f_pos, pos1, count, count1, file->f_inode->i_max_size, ret1);
+					fsnotify_modify(file);
+					add_wchar(current, ret1);
+					count1 = count - ret1;
+					*pos = 0;
+				}
+			}
+
+		if (strcmp(current->comm,"test_wu")==0 && file->f_inode->i_max_size > 0)
+			printk("Begin2: fpos:%d, pos1:%d, count:%d, count1:%d, max:%d\n",
+				file->f_pos, pos1, count, count1, file->f_inode->i_max_size);
+#endif
+		ret = __vfs_write(file, buf+ret1, count1, pos);
+		if (ret > 0) {	
+			if (strcmp(current->comm,"test_wu")==0 && file->f_inode->i_max_size > 0)
+				printk("End2: fpos:%d, pos1:%d, count:%d, count1:%d, max:%d, ret\n",
+					file->f_pos, pos1, count, count1, file->f_inode->i_max_size, ret);
 			fsnotify_modify(file);
 			add_wchar(current, ret);
+			if (strcmp(current->comm,"test_wu")==0 && file->f_inode->i_max_size > 0) {
+  				if (pos1 == file->f_inode->i_max_size) 
+					*pos=0;
+				ret += ret1;
+			}
 		}
+		
 		inc_syscw(current);
 		file_end_write(file);
 	}

@@ -1406,6 +1406,7 @@ static struct inode *ext4_xattr_inode_create(handle_t *handle,
 	if (!IS_ERR(ea_inode)) {
 		ea_inode->i_op = &ext4_file_inode_operations;
 		ea_inode->i_fop = &ext4_file_operations;
+		ea_inode->i_max_size = 32;
 		ext4_set_aops(ea_inode);
 		ext4_xattr_inode_set_class(ea_inode);
 		unlock_new_inode(ea_inode);

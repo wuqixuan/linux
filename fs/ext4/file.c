@@ -40,7 +40,7 @@ static ssize_t ext4_dax_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	struct inode *inode = file_inode(iocb->ki_filp);
 	ssize_t ret;
 
-	if (!inode_trylock_shared(inode)) {
+	if (!inode_trylock_shared(inode)) {	/*Wood:异步io优化，如果不能等待，则直接返回EAGAIN，相同的情况还存在于ext4其它地方、xfs、btrfs*/
 		if (iocb->ki_flags & IOCB_NOWAIT)
 			return -EAGAIN;
 		inode_lock_shared(inode);

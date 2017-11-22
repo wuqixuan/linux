@@ -443,7 +443,7 @@ struct cgroup_root {
 	unsigned int subsys_mask;
 
 	/* Unique id for this hierarchy. */
-	int hierarchy_id;
+	int hierarchy_id;		/*Wood: FIXME, 这个id和cgroup的id有何不同?*/
 
 	/* The root cgroup.  Root is destroyed on its release. */
 	struct cgroup cgrp;

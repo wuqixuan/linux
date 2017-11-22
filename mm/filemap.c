@@ -488,7 +488,7 @@ EXPORT_SYMBOL(filemap_flush);
  * Find at least one page in the range supplied, usually used to check if
  * direct writing in this range will trigger a writeback.
  */
-bool filemap_range_has_page(struct address_space *mapping,
+bool filemap_range_has_page(struct address_space *mapping,/*Wood:是否有未writeback的数据*/
 			   loff_t start_byte, loff_t end_byte)
 {
 	pgoff_t index = start_byte >> PAGE_SHIFT;
@@ -2320,7 +2320,7 @@ generic_file_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 	if (!count)
 		goto out; /* skip atime */
 
-	if (iocb->ki_flags & IOCB_DIRECT) {
+	if (iocb->ki_flags & IOCB_DIRECT) {	/*Wood: 如果发现是NOWAIT flag, 且有其它未完成的信息,则不阻塞AIO*/
 		struct file *file = iocb->ki_filp;
 		struct address_space *mapping = file->f_mapping;
 		struct inode *inode = mapping->host;
@@ -2937,7 +2937,7 @@ inline ssize_t generic_write_checks(struct kiocb *iocb, struct iov_iter *from)
 		iocb->ki_pos = i_size_read(inode);
 
 	pos = iocb->ki_pos;
-
+						/*Wood: NOWAIT flag只有DIRECT才有*/
 	if ((iocb->ki_flags & IOCB_NOWAIT) && !(iocb->ki_flags & IOCB_DIRECT))
 		return -EINVAL;
 
@@ -3009,7 +3009,7 @@ generic_file_direct_write(struct kiocb *iocb, struct iov_iter *from)
 	write_len = iov_iter_count(from);
 	end = (pos + write_len - 1) >> PAGE_SHIFT;
 
-	if (iocb->ki_flags & IOCB_NOWAIT) {
+	if (iocb->ki_flags & IOCB_NOWAIT) {/*Wood: 如果发现是NOWAIT flag, 且有其它未完成的信息,则不阻塞AIO*/
 		/* If there are pages to writeback, return */
 		if (filemap_range_has_page(inode->i_mapping, pos,
 					   pos + iov_iter_count(from)))

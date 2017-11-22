@@ -75,7 +75,7 @@ struct iocb {
 
 #if defined(__BYTE_ORDER) ? __BYTE_ORDER == __LITTLE_ENDIAN : defined(__LITTLE_ENDIAN)
 	__u32	aio_key;	/* the kernel sets aio_key to the req # */
-	__kernel_rwf_t aio_rw_flags;	/* RWF_* flags */
+	__kernel_rwf_t aio_rw_flags;	/* RWF_* flags *//*Wood: aio_rw_flags是为NOWAIT AIO 而加的,会有新的flag RWF**/
 #elif defined(__BYTE_ORDER) ? __BYTE_ORDER == __BIG_ENDIAN : defined(__BIG_ENDIAN)
 	__kernel_rwf_t aio_rw_flags;	/* RWF_* flags */
 	__u32	aio_key;	/* the kernel sets aio_key to the req # */

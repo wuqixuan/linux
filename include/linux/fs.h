@@ -150,7 +150,7 @@ typedef int (dio_iodone_t)(struct kiocb *iocb, loff_t offset,
 #define FMODE_NONOTIFY		((__force fmode_t)0x4000000)
 
 /* File is capable of returning -EAGAIN if I/O will block */
-#define FMODE_NOWAIT	((__force fmode_t)0x8000000)
+#define FMODE_NOWAIT	((__force fmode_t)0x8000000)	/*Wood:支持NOWAIT的AIO*/
 
 /*
  * Flag for rw_copy_check_uvector and compat_rw_copy_check_uvector
@@ -290,8 +290,8 @@ enum rw_hint {
 #define IOCB_DSYNC		(1 << 4)
 #define IOCB_SYNC		(1 << 5)
 #define IOCB_WRITE		(1 << 6)
-#define IOCB_NOWAIT		(1 << 7)
-
+#define IOCB_NOWAIT		(1 << 7)/*Wood: AIO时，如果DIRECT且有这个标志,则IO层FS层有block情况则返回EAGAIN*/
+kiocb_set_rw_flags
 struct kiocb {
 	struct file		*ki_filp;
 	loff_t			ki_pos;
@@ -3210,10 +3210,10 @@ static inline int iocb_flags(struct file *file)
 
 static inline int kiocb_set_rw_flags(struct kiocb *ki, rwf_t flags)
 {
-	if (unlikely(flags & ~RWF_SUPPORTED))
+	if (unlikely(flags & ~RWF_SUPPORTED))/*Wood: RWF_*的flag至少要设置一个*/
 		return -EOPNOTSUPP;
 
-	if (flags & RWF_NOWAIT) {
+	if (flags & RWF_NOWAIT) {/*Wood:发起一个异步IO iosubmit的nowait flag，文件也必须是异步io nowait*/
 		if (!(ki->ki_filp->f_mode & FMODE_NOWAIT))
 			return -EOPNOTSUPP;
 		ki->ki_flags |= IOCB_NOWAIT;

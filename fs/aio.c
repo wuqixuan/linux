@@ -1590,7 +1590,7 @@ static int io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
 		req->common.ki_flags |= IOCB_EVENTFD;
 	}
 
-	ret = kiocb_set_rw_flags(&req->common, iocb->aio_rw_flags);
+	ret = kiocb_set_rw_flags(&req->common, iocb->aio_rw_flags);/*Wood: RWF_*的flag至少要设置一个*/
 	if (unlikely(ret)) {
 		pr_debug("EINVAL: aio_rw_flags\n");
 		goto out_put_req;

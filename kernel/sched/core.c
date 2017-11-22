@@ -6425,7 +6425,7 @@ static int tg_set_cfs_bandwidth(struct task_group *tg, u64 period, u64 quota)
 	int i, ret = 0, runtime_enabled, runtime_was_enabled;
 	struct cfs_bandwidth *cfs_b = &tg->cfs_bandwidth;
 
-	if (tg == &root_task_group)
+	if (tg == &root_task_group)			/* Wood: 根组不允许设置*/
 		return -EINVAL;
 
 	/*
@@ -6441,14 +6441,14 @@ static int tg_set_cfs_bandwidth(struct task_group *tg, u64 period, u64 quota)
 	 * periods.  This also allows us to normalize in computing quota
 	 * feasibility.
 	 */
-	if (period > max_cfs_quota_period)
+	if (period > max_cfs_quota_period)		/*Wood: FIXME, quota和period之间的大小没有判断*/
 		return -EINVAL;
 
 	/*
 	 * Prevent race between setting of cfs_rq->runtime_enabled and
 	 * unthrottle_offline_cfs_rqs().
 	 */
-	get_online_cpus();
+	get_online_cpus();						/*Wood: FIXME 这里为何要加这把锁*/
 	mutex_lock(&cfs_constraints_mutex);
 	ret = __cfs_schedulable(tg, period, quota);
 	if (ret)
@@ -6463,7 +6463,7 @@ static int tg_set_cfs_bandwidth(struct task_group *tg, u64 period, u64 quota)
 	if (runtime_enabled && !runtime_was_enabled)
 		cfs_bandwidth_usage_inc();
 	raw_spin_lock_irq(&cfs_b->lock);
-	cfs_b->period = ns_to_ktime(period);
+	cfs_b->period = ns_to_ktime(period);		/*Wood: 设置*/
 	cfs_b->quota = quota;
 
 	__refill_cfs_bandwidth_runtime(cfs_b);
@@ -6481,10 +6481,10 @@ static int tg_set_cfs_bandwidth(struct task_group *tg, u64 period, u64 quota)
 
 		rq_lock_irq(rq, &rf);
 		cfs_rq->runtime_enabled = runtime_enabled;
-		cfs_rq->runtime_remaining = 0;
+		cfs_rq->runtime_remaining = 0;		/*Wood: FIXME: remaining 为何搞为0? */
 
 		if (cfs_rq->throttled)
-			unthrottle_cfs_rq(cfs_rq);
+			unthrottle_cfs_rq(cfs_rq);		/*Wood: FIXME: 重新设置了quota就解除控制了? bug吧? */
 		rq_unlock_irq(rq, &rf);
 	}
 	if (runtime_was_enabled && !runtime_enabled)
@@ -6496,7 +6496,7 @@ out_unlock:
 	return ret;
 }
 
-int tg_set_cfs_quota(struct task_group *tg, long cfs_quota_us)
+int tg_set_cfs_quota(struct task_group *tg, long cfs_quota_us)	/*Wood: 设置组的quota*/
 {
 	u64 quota, period;
 
@@ -6506,7 +6506,7 @@ int tg_set_cfs_quota(struct task_group *tg, long cfs_quota_us)
 	else
 		quota = (u64)cfs_quota_us * NSEC_PER_USEC;
 
-	return tg_set_cfs_bandwidth(tg, period, quota);
+	return tg_set_cfs_bandwidth(tg, period, quota);	/*Wood: 用同一个函数设置quota和period*/
 }
 
 long tg_get_cfs_quota(struct task_group *tg)
@@ -6522,7 +6522,7 @@ long tg_get_cfs_quota(struct task_group *tg)
 	return quota_us;
 }
 
-int tg_set_cfs_period(struct task_group *tg, long cfs_period_us)
+int tg_set_cfs_period(struct task_group *tg, long cfs_period_us)/*Wood: 设置组的period*/
 {
 	u64 quota, period;
 
@@ -6532,7 +6532,7 @@ int tg_set_cfs_period(struct task_group *tg, long cfs_period_us)
 	return tg_set_cfs_bandwidth(tg, period, quota);
 }
 
-long tg_get_cfs_period(struct task_group *tg)
+long tg_get_cfs_period(struct task_group *tg)	/*Wood: 用同一个函数设置quota和period*/
 {
 	u64 cfs_period_us;
 
@@ -6623,7 +6623,7 @@ static int tg_cfs_schedulable_down(struct task_group *tg, void *data)
 	return 0;
 }
 
-static int __cfs_schedulable(struct task_group *tg, u64 period, u64 quota)
+static int __cfs_schedulable(struct task_group *tg, u64 period, u64 quota)/*Wood: FIXME 遍历设置下层的子组? */
 {
 	int ret;
 	struct cfs_schedulable_data data = {

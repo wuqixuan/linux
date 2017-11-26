@@ -1130,7 +1130,7 @@ static void srcu_advance_state(struct srcu_struct *sp)
  * the workqueue.  Note that needed memory barriers have been executed
  * in this task's context by srcu_readers_active_idx_check().
  */
-static void srcu_invoke_callbacks(struct work_struct *work)
+static void srcu_invoke_callbacks(struct work_struct *work)/*Wood: 调用回调的callback*/
 {
 	bool more;
 	struct rcu_cblist ready_cbs;

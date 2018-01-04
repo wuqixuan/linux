@@ -1539,12 +1539,12 @@ struct page *pagecache_get_page(struct address_space *mapping, pgoff_t offset,
 
 repeat:
 	page = find_get_entry(mapping, offset);
-	if (radix_tree_exceptional_entry(page))
+	if (radix_tree_exceptional_entry(page))/*Wood:FIXME 这是什么情况?*/
 		page = NULL;
 	if (!page)
 		goto no_page;
 
-	if (fgp_flags & FGP_LOCK) {
+	if (fgp_flags & FGP_LOCK) {				/*Wood:需要lock*/
 		if (fgp_flags & FGP_NOWAIT) {
 			if (!trylock_page(page)) {
 				put_page(page);
@@ -1555,7 +1555,7 @@ repeat:
 		}
 
 		/* Has the page been truncated? */
-		if (unlikely(page->mapping != mapping)) {
+		if (unlikely(page->mapping != mapping)) {/*Wood:FIXME 这是什么情况?*/
 			unlock_page(page);
 			put_page(page);
 			goto repeat;
@@ -1563,11 +1563,11 @@ repeat:
 		VM_BUG_ON_PAGE(page->index != offset, page);
 	}
 
-	if (page && (fgp_flags & FGP_ACCESSED))
+	if (page && (fgp_flags & FGP_ACCESSED))/*Wood:什么场景FIXME*/
 		mark_page_accessed(page);
 
 no_page:
-	if (!page && (fgp_flags & FGP_CREAT)) {
+	if (!page && (fgp_flags & FGP_CREAT)) {/*Wood:查找不到就创建*/
 		int err;
 		if ((fgp_flags & FGP_WRITE) && mapping_cap_account_dirty(mapping))
 			gfp_mask |= __GFP_WRITE;
@@ -1585,7 +1585,7 @@ no_page:
 		if (fgp_flags & FGP_ACCESSED)
 			__SetPageReferenced(page);
 
-		err = add_to_page_cache_lru(page, mapping, offset,
+		err = add_to_page_cache_lru(page, mapping, offset,/*Wood:为何需要查找的时候才加入lru? */
 				gfp_mask & GFP_RECLAIM_MASK);
 		if (unlikely(err)) {
 			put_page(page);

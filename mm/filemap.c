@@ -2075,7 +2075,7 @@ static ssize_t generic_file_buffered_read(struct kiocb *iocb,
 	last_index = (*ppos + iter->count + PAGE_SIZE-1) >> PAGE_SHIFT;
 	offset = *ppos & ~PAGE_MASK;
 
-	for (;;) {
+	for (;;) {									/*Read all pages we need for loop */
 		struct page *page;
 		pgoff_t end_index;
 		loff_t isize;
@@ -2083,29 +2083,29 @@ static ssize_t generic_file_buffered_read(struct kiocb *iocb,
 
 		cond_resched();
 find_page:
-		if (fatal_signal_pending(current)) {
+		if (fatal_signal_pending(current)) {	/* The process will die */
 			error = -EINTR;
 			goto out;
 		}
 
-		page = find_get_page(mapping, index);
+		page = find_get_page(mapping, index);	/* First read from pagecache */
 		if (!page) {
-			if (iocb->ki_flags & IOCB_NOWAIT)
+			if (iocb->ki_flags & IOCB_NOWAIT)	/* App does not want to wait, so return -EAGAIN */
 				goto would_block;
-			page_cache_sync_readahead(mapping,
+			page_cache_sync_readahead(mapping,	/* It's a sync read ahead, so ... */
 					ra, filp,
 					index, last_index - index);
-			page = find_get_page(mapping, index);
-			if (unlikely(page == NULL))
+			page = find_get_page(mapping, index);	/* ... in most cases, the page will be in the page now  */
+			if (unlikely(page == NULL))			/* Why cannot find ? which case? FIXME ? */
 				goto no_cached_page;
 		}
-		if (PageReadahead(page)) {
+		if (PageReadahead(page)) {				/* FIXME */
 			page_cache_async_readahead(mapping,
 					ra, filp, page,
 					index, last_index - index);
 		}
-		if (!PageUptodate(page)) {
-			if (iocb->ki_flags & IOCB_NOWAIT) {
+		if (!PageUptodate(page)) {				/* Why  is not uptodate FIXME */
+			if (iocb->ki_flags & IOCB_NOWAIT) {	/* App does not want to wait, so return -EAGAIN */
 				put_page(page);
 				goto would_block;
 			}
@@ -2137,7 +2137,7 @@ find_page:
 				goto page_not_up_to_date_locked;
 			unlock_page(page);
 		}
-page_ok:
+page_ok:																/*If page is read, then copy to user*/
 		/*
 		 * i_size must be checked after we know the page is Uptodate.
 		 *
@@ -2201,7 +2201,7 @@ page_ok:
 		}
 		continue;
 
-page_not_up_to_date:
+page_not_up_to_date:								/* page in the cache is not uptodate, need read again at lable ":readpage", why is not  uptodate FIXME */
 		/* Get exclusive access to the page ... */
 		error = lock_page_killable(page);
 		if (unlikely(error))
@@ -2221,7 +2221,7 @@ page_not_up_to_date_locked:
 			goto page_ok;
 		}
 
-readpage:
+readpage:						/* Read data again, for 1) page in the cache is not uptodate. 2) the new page allocated below. */
 		/*
 		 * A previous I/O error may have been due to temporary
 		 * failures, eg. multipath errors.
@@ -2229,7 +2229,7 @@ readpage:
 		 */
 		ClearPageError(page);
 		/* Start the actual read. The read will unlock the page. */
-		error = mapping->a_ops->readpage(filp, page);
+		error = mapping->a_ops->readpage(filp, page);		  /* If read ahead cannot read a page, directly read bypass readahead now */
 
 		if (unlikely(error)) {
 			if (error == AOP_TRUNCATED_PAGE) {
@@ -2268,17 +2268,17 @@ readpage_error:
 		put_page(page);
 		goto out;
 
-no_cached_page:
+no_cached_page:						/* If read ahead cannot read a page into cache, alloc cache node and insert redix tree */
 		/*
 		 * Ok, it wasn't cached, so we need to create a new
 		 * page..
 		 */
-		page = page_cache_alloc(mapping);
+		page = page_cache_alloc(mapping);				/* New page without data */
 		if (!page) {
 			error = -ENOMEM;
 			goto out;
 		}
-		error = add_to_page_cache_lru(page, mapping, index,
+		error = add_to_page_cache_lru(page, mapping, index,		/* Add both cache and lru */
 				mapping_gfp_constraint(mapping, GFP_KERNEL));
 		if (error) {
 			put_page(page);
@@ -2288,7 +2288,7 @@ no_cached_page:
 			}
 			goto out;
 		}
-		goto readpage;
+		goto readpage;									/* Read data for the new page */
 	}
 
 would_block:

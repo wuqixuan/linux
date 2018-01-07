@@ -45,23 +45,23 @@ struct page {
 					 * updated asynchronously */
 	union {
 		struct address_space *mapping;	/* If low bit clear, points to
-						 * inode address_space, or NULL.
+						 * inode address_space, or NULL.		(__add_to_page_cache_locked中修改)
 						 * If page mapped as anonymous
 						 * memory, low bit is set, and
 						 * it points to anon_vma object
 						 * or KSM private structure. See
 						 * PAGE_MAPPING_ANON and
 						 * PAGE_MAPPING_KSM.
-						 */
+						 */							/**/
 		void *s_mem;			/* slab first object */
 		atomic_t compound_mapcount;	/* first tail page */
 		/* page_deferred_list().next	 -- second tail page */
 	};
 
 	/* Second double word */
-	union {
-		pgoff_t index;		/* Our offset within mapping. */
-		void *freelist;		/* sl[aou]b first free object */
+	union {														/* 被申请1) file 2) anon 3) slab 4) kernel */
+		pgoff_t index;		/* Our offset within mapping. */    /* 当前的page位于文件头的相对偏移, 匿名页为0*/
+		void *freelist;		/* sl[aou]b first free object */    /* 作为Slab时有效*/
 		/* page_deferred_list().prev	-- second tail page */
 	};
 

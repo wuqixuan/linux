@@ -388,19 +388,19 @@ int pagecache_write_end(struct file *, struct address_space *mapping,
 				loff_t pos, unsigned len, unsigned copied,
 				struct page *page, void *fsdata);
 
-struct address_space {
-	struct inode		*host;		/* owner: inode, block_device */
-	struct radix_tree_root	page_tree;	/* radix tree of all pages */
+struct address_space {						/*Wood: inode的page缓存管理，行为ops由不同的ops由lowerfs有不同的处理, ops由lowerfs决定*/
+	struct inode		*host;		/* owner: inode, block_device */	/*所属的inode*/
+	struct radix_tree_root	page_tree;	/* radix tree of all pages */	/*page 树*/
 	spinlock_t		tree_lock;	/* and lock protecting it */
 	atomic_t		i_mmap_writable;/* count VM_SHARED mappings */
 	struct rb_root_cached	i_mmap;		/* tree of private and shared mappings */
 	struct rw_semaphore	i_mmap_rwsem;	/* protect tree, count, list */
 	/* Protected by tree_lock together with the radix tree */
-	unsigned long		nrpages;	/* number of total pages */
+	unsigned long		nrpages;	/* number of total pages */			/*inode的page缓存的page个数*/
 	/* number of shadow or DAX exceptional entries */
 	unsigned long		nrexceptional;
 	pgoff_t			writeback_index;/* writeback starts here */
-	const struct address_space_operations *a_ops;	/* methods */
+	const struct address_space_operations *a_ops;	/* methods */		/*不同的ops由lowerfs有不同的处理, ops由lowerfs决定*/
 	unsigned long		flags;		/* error bits */
 	spinlock_t		private_lock;	/* for use by the address_space */
 	gfp_t			gfp_mask;	/* implicit gfp mask for allocations */

@@ -388,9 +388,9 @@ int pagecache_write_end(struct file *, struct address_space *mapping,
 				loff_t pos, unsigned len, unsigned copied,
 				struct page *page, void *fsdata);
 
-struct address_space {						/*Wood: inode的page缓存管理，行为ops由不同的ops由lowerfs有不同的处理, ops由lowerfs决定*/
-	struct inode		*host;		/* owner: inode, block_device */	/*所属的inode*/
-	struct radix_tree_root	page_tree;	/* radix tree of all pages */	/*page 树*/
+struct address_space {						/* Each inode has one address_space, ops depends on lowerfs */
+	struct inode		*host;		/* owner: inode, block_device */
+	struct radix_tree_root	page_tree;	/* radix tree of all pages */
 	spinlock_t		tree_lock;	/* and lock protecting it */
 	atomic_t		i_mmap_writable;/* count VM_SHARED mappings */
 	struct rb_root_cached	i_mmap;		/* tree of private and shared mappings */
@@ -400,7 +400,7 @@ struct address_space {						/*Wood: inode的page缓存管理，行为ops由不�
 	/* number of shadow or DAX exceptional entries */
 	unsigned long		nrexceptional;
 	pgoff_t			writeback_index;/* writeback starts here */
-	const struct address_space_operations *a_ops;	/* methods */		/*不同的ops由lowerfs有不同的处理, ops由lowerfs决定*/
+	const struct address_space_operations *a_ops;	/* methods */		/* depends on lowerfs, function comes from lowersf */
 	unsigned long		flags;		/* error bits */
 	spinlock_t		private_lock;	/* for use by the address_space */
 	gfp_t			gfp_mask;	/* implicit gfp mask for allocations */
@@ -1763,7 +1763,7 @@ struct inode_operations {
 static inline ssize_t call_read_iter(struct file *file, struct kiocb *kio,
 				     struct iov_iter *iter)
 {
-	return file->f_op->read_iter(kio, iter);
+	return file->f_op->read_iter(kio, iter);	/* like ext2_file_read_iter */
 }
 
 static inline ssize_t call_write_iter(struct file *file, struct kiocb *kio,

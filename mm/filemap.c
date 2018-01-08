@@ -2177,7 +2177,7 @@ page_ok:																/*If page is read, then copy to user*/
 		 * only mark it as accessed the first time.
 		 */
 		if (prev_index != index || offset != prev_offset)
-			mark_page_accessed(page);
+			mark_page_accessed(page);							/* What it means ? FIXME */
 		prev_index = index;
 
 		/*
@@ -2185,7 +2185,7 @@ page_ok:																/*If page is read, then copy to user*/
 		 * now we can copy it to user space...
 		 */
 
-		ret = copy_page_to_iter(page, offset, nr, iter);
+		ret = copy_page_to_iter(page, offset, nr, iter);		/*Here copy to user*/  
 		offset += ret;
 		index += offset >> PAGE_SHIFT;
 		offset &= ~PAGE_MASK;
@@ -2229,7 +2229,7 @@ readpage:						/* Read data again, for 1) page in the cache is not uptodate. 2) 
 		 */
 		ClearPageError(page);
 		/* Start the actual read. The read will unlock the page. */
-		error = mapping->a_ops->readpage(filp, page);		  /* If read ahead cannot read a page, directly read bypass readahead now */
+		error = mapping->a_ops->readpage(filp, page);		  /* If read ahead process cannot get a page, directly read here bypassing readahead*/
 
 		if (unlikely(error)) {
 			if (error == AOP_TRUNCATED_PAGE) {
@@ -2268,17 +2268,21 @@ readpage_error:
 		put_page(page);
 		goto out;
 
-no_cached_page:						/* If read ahead cannot read a page into cache, alloc cache node and insert redix tree */
+no_cached_page:						/* If read ahead cannot get a page into cache, alloc cache node and insert redix tree */
 		/*
 		 * Ok, it wasn't cached, so we need to create a new
 		 * page..
 		 */
+		/* Because we don't do readahead, so just one by one page in current function, only readpage ops. 
+		   need call page_cache_alloc and add_to_page_cache_lru before readpage ops. 
+		   
+		   Instead, inside readpages ops, it will call above page_cache_alloc and add_to_page_cache_lru. */
 		page = page_cache_alloc(mapping);				/* New page without data */
 		if (!page) {
 			error = -ENOMEM;
 			goto out;
 		}
-		error = add_to_page_cache_lru(page, mapping, index,		/* Add both cache and lru */
+		error = add_to_page_cache_lru(page, mapping, index,		
 				mapping_gfp_constraint(mapping, GFP_KERNEL));
 		if (error) {
 			put_page(page);

@@ -49,7 +49,7 @@ static void mpage_end_io(struct bio *bio)
 	struct bio_vec *bv;
 	int i;
 
-	bio_for_each_segment_all(bv, bio, i) {
+	bio_for_each_segment_all(bv, bio, i) {		/* loop for each page in this bio */
 		struct page *page = bv->bv_page;
 		page_endio(page, op_is_write(bio_op(bio)),
 				blk_status_to_errno(bio->bi_status));
@@ -144,7 +144,7 @@ map_buffer_to_page(struct page *page, struct buffer_head *bh, int page_block)
  */
 static struct bio *
 do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
-		sector_t *last_block_in_bio, struct buffer_head *map_bh,
+		sector_t *last_block_in_bio, struct buffer_head *map_bh,		/*map_bh is a temp bh from caller */
 		unsigned long *first_logical_block, get_block_t get_block,
 		gfp_t gfp)
 {
@@ -152,9 +152,9 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	const unsigned blkbits = inode->i_blkbits;
 	const unsigned blocks_per_page = PAGE_SIZE >> blkbits;
 	const unsigned blocksize = 1 << blkbits;
-	sector_t block_in_file;
-	sector_t last_block;
-	sector_t last_block_in_file;
+	sector_t block_in_file;							/* the first blk num of this page in the file */
+	sector_t last_block;							/* the last blk num of this page in the file */
+	sector_t last_block_in_file;					/* the last blk num of the total file as per file size */
 	sector_t blocks[MAX_BUF_PER_PAGE];
 	unsigned page_block;
 	unsigned first_hole = blocks_per_page;
@@ -167,18 +167,21 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	if (page_has_buffers(page))
 		goto confused;
 
-	block_in_file = (sector_t)page->index << (PAGE_SHIFT - blkbits);
-	last_block = block_in_file + nr_pages * blocks_per_page;
-	last_block_in_file = (i_size_read(inode) + blocksize - 1) >> blkbits;
+	block_in_file = (sector_t)page->index << (PAGE_SHIFT - blkbits);	/* the first blk num of this page in the file */
+	last_block = block_in_file + nr_pages * blocks_per_page;			/* the last blk num of this page in the file */
+	last_block_in_file = (i_size_read(inode) + blocksize - 1) >> blkbits;	/* the last blk num of the total file as per file size */
 	if (last_block > last_block_in_file)
-		last_block = last_block_in_file;
+		last_block = last_block_in_file;								/* only handle the blk until the last blk of the total file */
 	page_block = 0;
 
 	/*
 	 * Map blocks using the result from the previous get_blocks call first.
 	 */
 	nblocks = map_bh->b_size >> blkbits;
-	if (buffer_mapped(map_bh) && block_in_file > *first_logical_block &&
+	
+	/* 1. buffer_mapped(map_bh) never happen when called from mpage_readpage . 
+	   2. Not happen in the frist loop in mpage_readpages.*/
+	if (buffer_mapped(map_bh) && block_in_file > *first_logical_block &&	
 			block_in_file < (*first_logical_block + nblocks)) {
 		unsigned map_offset = block_in_file - *first_logical_block;
 		unsigned last = nblocks - map_offset;
@@ -201,8 +204,13 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	/*
 	 * Then do more get_blocks calls until we are done with this page.
 	 */
+    /*这个循环是比较关键的路径，理解这个函数至关重要 
+    1、page_block从0开始循环，它表示在这个page内的block大小 
+    2、调用get_block  函数查找对应逻辑块的物理块号是多少 
+    3、如果遇到了文件空洞、page上的物理块不连续就会跳转到confused 
+    4、将这个page中每个逻辑块对应的物理块都保存到临时的数组blocks[] 中*/ 	 
 	map_bh->b_page = page;
-	while (page_block < blocks_per_page) {
+	while (page_block < blocks_per_page) {			/* loop for each block in this page */
 		map_bh->b_state = 0;
 		map_bh->b_size = 0;
 
@@ -253,6 +261,9 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 		bdev = map_bh->b_bdev;
 	}
 
+	/*如果发现文件中有洞，将整个page清0，因为文件洞的区域 
+		物理层不会真的去磁盘上读取，必须在这里主动清零，否则 
+		文件洞区域内容可能随机*/ 
 	if (first_hole != blocks_per_page) {
 		zero_user_segment(page, first_hole << blkbits, PAGE_SIZE);
 		if (first_hole == 0) {
@@ -283,6 +294,9 @@ alloc_new:
 								page))
 				goto out;
 		}
+/*重新分配一个bio结构体 
+        blocks[0] << (blkbits - 9) 这个是page中第一个逻辑块的物理块号， 
+        转换成物理扇区号*/ 		
 		bio = mpage_alloc(bdev, blocks[0] << (blkbits - 9),
 				min_t(int, nr_pages, BIO_MAX_PAGES), gfp);
 		if (bio == NULL)
@@ -303,13 +317,13 @@ alloc_new:
 	else
 		*last_block_in_bio = blocks[blocks_per_page - 1];
 out:
-	return bio;
+	return bio;			/*一切顺利，整个page中的物理块是相连的，返回一个bio*/ 
 
 confused:
 	if (bio)
 		bio = mpage_bio_submit(REQ_OP_READ, 0, bio);
 	if (!PageUptodate(page))
-	        block_read_full_page(page, get_block);
+	        block_read_full_page(page, get_block);		/*page 中的物理块不相连，没有办法一个一个buffer去读取出来 */ 
 	else
 		unlock_page(page);
 	goto out;
@@ -372,11 +386,11 @@ mpage_readpages(struct address_space *mapping, struct list_head *pages,
 
 	map_bh.b_state = 0;
 	map_bh.b_size = 0;
-	for (page_idx = 0; page_idx < nr_pages; page_idx++) {/* For each page in pages */
+	for (page_idx = 0; page_idx < nr_pages; page_idx++) {/* For each empty page in pages list */
 		struct page *page = lru_to_page(pages);
 
-		prefetchw(&page->flags);
-		list_del(&page->lru);
+		prefetchw(&page->flags);		/* FIXME ? performance ? */
+		list_del(&page->lru);			/* need del first, because add_to_page_cache_lru uses lru field of page also */
 		if (!add_to_page_cache_lru(page, mapping,
 					page->index,
 					gfp)) {

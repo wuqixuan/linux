@@ -59,9 +59,9 @@ struct page {
 	};
 
 	/* Second double word */
-	union {														/* 被申请1) file 2) anon 3) slab 4) kernel */
-		pgoff_t index;		/* Our offset within mapping. */    /* 当前的page位于文件头的相对偏移, 匿名页为0*/
-		void *freelist;		/* sl[aou]b first free object */    /* 作为Slab时有效*/
+	union {														/* 1) file 2) anon 3) slab 4) kernel */
+		pgoff_t index;		/* Our offset within mapping. */    /* page index num from start of file, 0 for anon page*/
+		void *freelist;		/* sl[aou]b first free object */    /* it's for slab for slub */
 		/* page_deferred_list().prev	-- second tail page */
 	};
 
@@ -174,7 +174,7 @@ struct page {
 	/* Remainder is not double word aligned */
 	union {
 		unsigned long private;		/* Mapping-private opaque data:
-					 	 * usually used for buffer_heads
+					 	 * usually used for buffer_heads (struct buffer_head)
 						 * if PagePrivate set; used for
 						 * swp_entry_t if PageSwapCache;
 						 * indicates order in the buddy

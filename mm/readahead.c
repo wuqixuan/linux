@@ -118,17 +118,19 @@ static int read_pages(struct address_space *mapping, struct file *filp,
 	blk_start_plug(&plug);
 
 	if (mapping->a_ops->readpages) {
-		ret = mapping->a_ops->readpages(filp, mapping, pages, nr_pages);
+		ret = mapping->a_ops->readpages(filp, mapping, pages, nr_pages);	/* ext2_readpages */
 		/* Clean up the remaining pages */
-		put_pages_list(pages);
+		put_pages_list(pages);				/*At most cases, pages are empty. FIXME, why pages is not empty */
 		goto out;
 	}
 
-	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
+	for (page_idx = 0; page_idx < nr_pages; page_idx++) {		/* if lowerfs don't have readpages ops, read one by one */
 		struct page *page = lru_to_page(pages);
 		list_del(&page->lru);
+
+		/*readpages opt will invoke add_to_page_cache_lru and put page, so does not invoke them like here */
 		if (!add_to_page_cache_lru(page, mapping, page->index, gfp))
-			mapping->a_ops->readpage(filp, page);
+			mapping->a_ops->readpage(filp, page);							/* ext2_readpage */
 		put_page(page);
 	}
 	ret = 0;
@@ -175,15 +177,15 @@ int __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 			break;
 
 		rcu_read_lock();
-		page = radix_tree_lookup(&mapping->page_tree, page_offset);
+		page = radix_tree_lookup(&mapping->page_tree, page_offset);	/*firstly search in the cache */
 		rcu_read_unlock();
 		if (page && !radix_tree_exceptional_entry(page))
-			continue;
+			continue;										/*page is in the page cache, so no need read from dev*/
 
 		page = __page_cache_alloc(gfp_mask);
 		if (!page)
 			break;
-		page->index = page_offset;
+		page->index = page_offset;							/* page index identifies which part of file to be read */
 		list_add(&page->lru, &page_pool);
 		if (page_idx == nr_to_read - lookahead_size)
 			SetPageReadahead(page);

@@ -283,18 +283,18 @@ static void end_buffer_async_read(struct buffer_head *bh, int uptodate)
 	first = page_buffers(page);
 	local_irq_save(flags);
 	bit_spin_lock(BH_Uptodate_Lock, &first->b_state);
-	clear_buffer_async_read(bh);
+	clear_buffer_async_read(bh);				/* release the bh status and unlock bh */
 	unlock_buffer(bh);
 	tmp = bh;
 	do {
-		if (!buffer_uptodate(tmp))
+		if (!buffer_uptodate(tmp))				/* Some other bh is not uptodate, so the whole page is not uptodate */
 			page_uptodate = 0;
 		if (buffer_async_read(tmp)) {
 			BUG_ON(!buffer_locked(tmp));
 			goto still_busy;
 		}
 		tmp = tmp->b_this_page;
-	} while (tmp != bh);
+	} while (tmp != bh);						/* traversing the the circular list */
 	bit_spin_unlock(BH_Uptodate_Lock, &first->b_state);
 	local_irq_restore(flags);
 
@@ -385,7 +385,7 @@ EXPORT_SYMBOL(end_buffer_async_write);
  */
 static void mark_buffer_async_read(struct buffer_head *bh)
 {
-	bh->b_end_io = end_buffer_async_read;
+	bh->b_end_io = end_buffer_async_read;		/* The function will be called after bh data transfering, for each bh, it will be called */
 	set_buffer_async_read(bh);
 }
 
@@ -851,12 +851,12 @@ struct buffer_head *alloc_page_buffers(struct page *page, unsigned long size,
 
 	head = NULL;
 	offset = PAGE_SIZE;
-	while ((offset -= size) >= 0) {
+	while ((offset -= size) >= 0) {		/* loop from tail to head,  offset is descending */
 		bh = alloc_buffer_head(gfp);
 		if (!bh)
 			goto no_grow;
 
-		bh->b_this_page = head;
+		bh->b_this_page = head;			/* point to the next buffer, the tail point to NULL */
 		bh->b_blocknr = -1;
 		head = bh;
 
@@ -1540,9 +1540,9 @@ void create_empty_buffers(struct page *page,
 	do {
 		bh->b_state |= b_state;
 		tail = bh;
-		bh = bh->b_this_page;
+		bh = bh->b_this_page;	/* get the next one */
 	} while (bh);
-	tail->b_this_page = head;
+	tail->b_this_page = head;	/* the tail point to the head, so the list is circular */
 
 	spin_lock(&page->mapping->private_lock);
 	if (PageUptodate(page) || PageDirty(page)) {
@@ -1553,7 +1553,7 @@ void create_empty_buffers(struct page *page,
 			if (PageUptodate(page))
 				set_buffer_uptodate(bh);
 			bh = bh->b_this_page;
-		} while (bh != head);
+		} while (bh != head);		/* set Uptodate or dirty for bh status as per page, traversing the list */
 	}
 	attach_page_buffers(page, head);
 	spin_unlock(&page->mapping->private_lock);
@@ -2233,7 +2233,7 @@ EXPORT_SYMBOL(block_is_partially_uptodate);
  * set/clear_buffer_uptodate() functions propagate buffer state into the
  * page struct once IO has completed.
  */
-int block_read_full_page(struct page *page, get_block_t *get_block)
+int block_read_full_page(struct page *page, get_block_t *get_block)	/* It's the slow path version of do_mpage_readpage */
 {
 	struct inode *inode = page->mapping->host;
 	sector_t iblock, lblock;
@@ -2246,27 +2246,27 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 	blocksize = head->b_size;
 	bbits = block_size_bits(blocksize);
 
-	iblock = (sector_t)page->index << (PAGE_SHIFT - bbits);
-	lblock = (i_size_read(inode)+blocksize-1) >> bbits;
+	iblock = (sector_t)page->index << (PAGE_SHIFT - bbits);		/* iblock is the first block num of the page */
+	lblock = (i_size_read(inode)+blocksize-1) >> bbits;			/* lblock is the last, biggest iblock*/
 	bh = head;
 	nr = 0;
 	i = 0;
 
 	do {
-		if (buffer_uptodate(bh))
-			continue;
+		if (buffer_uptodate(bh))	/* data from page is uptodate in page cache, no need to read from device */
+			continue;				/* if bh is uptodate, but not mapped, mayb it's a sparse file */
 
 		if (!buffer_mapped(bh)) {
 			int err = 0;
 
 			fully_mapped = 0;
-			if (iblock < lblock) {
+			if (iblock < lblock) {	/* lblock is the last, biggest iblock*/
 				WARN_ON(bh->b_size != blocksize);
-				err = get_block(inode, iblock, bh, 0);
+				err = get_block(inode, iblock, bh, 0);	/* for example: blkdev_get_block, ext2_get_block */
 				if (err)
 					SetPageError(page);
 			}
-			if (!buffer_mapped(bh)) {
+			if (!buffer_mapped(bh)) {			/* the bh is over the lblock, means no data in device, so mmap zero for it, maybe it's the hole */
 				zero_user(page, i * blocksize, blocksize);
 				if (!err)
 					set_buffer_uptodate(bh);
@@ -2279,11 +2279,11 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 			if (buffer_uptodate(bh))
 				continue;
 		}
-		arr[nr++] = bh;
+		arr[nr++] = bh;						/* some bh is mmaping to page cache, but it's not uptodate */
 	} while (i++, iblock++, (bh = bh->b_this_page) != head);
 
 	if (fully_mapped)
-		SetPageMappedToDisk(page);
+		SetPageMappedToDisk(page);			/* FIXME */
 
 	if (!nr) {
 		/*
@@ -2299,7 +2299,7 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 	/* Stage two: lock the buffers */
 	for (i = 0; i < nr; i++) {
 		bh = arr[i];
-		lock_buffer(bh);
+		lock_buffer(bh);					/*Only current thread can handle the buffer */
 		mark_buffer_async_read(bh);
 	}
 
@@ -2311,7 +2311,7 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 	for (i = 0; i < nr; i++) {
 		bh = arr[i];
 		if (buffer_uptodate(bh))
-			end_buffer_async_read(bh, 1);
+			end_buffer_async_read(bh, 1);	/* Another thread already read for the bh, so seems directly calling b_end_io*/
 		else
 			submit_bh(REQ_OP_READ, 0, bh);
 	}

@@ -51,7 +51,7 @@ struct bio {
 	struct bio		*bi_next;	/* request queue link */
 	struct gendisk		*bi_disk;
 	u8			bi_partno;
-	blk_status_t		bi_status;
+	blk_status_t		bi_status;	/* Refer to BLK_STS_OK , meaning is from blk_errors */
 	unsigned int		bi_opf;		/* bottom bits req flags,
 						 * top bits REQ_OP. Use
 						 * accessors.

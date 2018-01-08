@@ -61,16 +61,16 @@ typedef void (bh_end_io_t)(struct buffer_head *bh, int uptodate);
  * for backward compatibility reasons (e.g. submit_bh).
  */
 struct buffer_head {
-	unsigned long b_state;		/* buffer state bitmap (see above) */
+	unsigned long b_state;		/* buffer state bitmap (see above) *//*BH_Dirty	*/
 	struct buffer_head *b_this_page;/* circular list of page's buffers */
 	struct page *b_page;		/* the page this bh is mapped to */
 
-	sector_t b_blocknr;		/* start block number */
-	size_t b_size;			/* size of mapping */
+	sector_t b_blocknr;		/* start block number */	/* relative block number of the file */
+	size_t b_size;			/* size of mapping */		/*one bh map size, normally same as blocksize of inode device */
 	char *b_data;			/* pointer to data within the page */
 
 	struct block_device *b_bdev;
-	bh_end_io_t *b_end_io;		/* I/O completion */
+	bh_end_io_t *b_end_io;		/* I/O completion */	/* Will be called when I/O completion*/
  	void *b_private;		/* reserved for b_end_io */
 	struct list_head b_assoc_buffers; /* associated with another mapping */
 	struct address_space *b_assoc_map;	/* mapping this buffer is

@@ -1329,7 +1329,7 @@ __writeback_single_inode(struct inode *inode, struct writeback_control *wbc)
 	 * inode metadata is written back correctly.
 	 */
 	if (wbc->sync_mode == WB_SYNC_ALL && !wbc->for_sync) {
-		int err = filemap_fdatawait(mapping);
+		int err = filemap_fdatawait(mapping);		/* wait for above do_writepages complete */
 		if (ret == 0)
 			ret = err;
 	}

@@ -2126,7 +2126,7 @@ void __mark_inode_dirty(struct inode *inode, int flags)
 		trace_writeback_dirty_inode_start(inode, flags);
 
 		if (sb->s_op->dirty_inode)
-			sb->s_op->dirty_inode(inode, flags);
+			sb->s_op->dirty_inode(inode, flags);	/*ext4_dirty_inode*/
 
 		trace_writeback_dirty_inode(inode, flags);
 	}

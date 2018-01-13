@@ -2339,7 +2339,7 @@ int do_writepages(struct address_space *mapping, struct writeback_control *wbc)
 		return 0;
 	while (1) {
 		if (mapping->a_ops->writepages)
-			ret = mapping->a_ops->writepages(mapping, wbc);
+			ret = mapping->a_ops->writepages(mapping, wbc);/*ext2_writepages*/
 		else
 			ret = generic_writepages(mapping, wbc);
 		if ((ret != -ENOMEM) || (wbc->sync_mode != WB_SYNC_ALL))

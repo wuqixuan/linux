@@ -605,8 +605,8 @@ EXPORT_SYMBOL(filemap_fdatawait_keep_errors);
 
 static bool mapping_needs_writeback(struct address_space *mapping)
 {
-	return (!dax_mapping(mapping) && mapping->nrpages) ||
-	    (dax_mapping(mapping) && mapping->nrexceptional);
+	return (!dax_mapping(mapping) && mapping->nrpages) ||		/*whether has pagecache data to flush */
+	    (dax_mapping(mapping) && mapping->nrexceptional);		/*          or dax data to flush */
 }
 
 int filemap_write_and_wait(struct address_space *mapping)

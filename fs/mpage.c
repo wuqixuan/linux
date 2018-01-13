@@ -143,7 +143,7 @@ map_buffer_to_page(struct page *page, struct buffer_head *bh, int page_block)
  * get_block() call.
  */
 static struct bio *
-do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
+do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,	/*it's like __mpage_writepage */
 		sector_t *last_block_in_bio, struct buffer_head *map_bh,		/*map_bh is a temp bh from caller */
 		unsigned long *first_logical_block, get_block_t get_block,
 		gfp_t gfp)
@@ -493,7 +493,7 @@ void clean_page_buffers(struct page *page)
 	clean_buffers(page, ~0U);
 }
 
-static int __mpage_writepage(struct page *page, struct writeback_control *wbc,
+static int __mpage_writepage(struct page *page, struct writeback_control *wbc,	/* it's like do_mpage_readpage */
 		      void *data)
 {
 	struct mpage_data *mpd = data;
@@ -675,7 +675,7 @@ confused:
 		bio = mpage_bio_submit(REQ_OP_WRITE, op_flags, bio);
 
 	if (mpd->use_writepage) {
-		ret = mapping->a_ops->writepage(page, wbc);
+		ret = mapping->a_ops->writepage(page, wbc);	/*ext2_writepage*/
 	} else {
 		ret = -EAGAIN;
 		goto out;
